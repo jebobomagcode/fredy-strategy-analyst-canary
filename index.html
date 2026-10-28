@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" class="market-only">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://fapi.binance.com; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b1220">
+<title>Fredy Strategy Analyst — Market & Reports (Prototype)</title>
+<link rel="stylesheet" href="./styles.css">
+<script defer src="./vendor/lightweight-charts.standalone.production.js" integrity="sha384-q1KYLSKHgBnW5tWYGGR8+6YV4/iPy31dILoF2I1OD7XiVUvHEp/TaxIQVmB0j3R2"></script>
+<script defer src="./core.js" integrity="sha384-7V9n02LAR0hIgcQRtDCUOkJ8EBWFdfR27j359YqILnamtEy+EjMNweKgW+W5mWmb"></script>
+<script defer src="./app.js" integrity="sha384-iCBQFk5WolrsLRc2+DOci6rSp2vSs4nG8Qnixyw291LqRq01TqDqDXhlnaYw0ii2"></script>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">F</div><div><strong>Fredy Strategy Analyst</strong><div class="brand-sub">USD-M perpetuals · Independent research dashboard</div></div></div>
+    <div class="top-tag">UNRELEASED MARKET PREVIEW · NOT A LIVE SIGNAL</div>
+  </header>
+  <main>
+    <div class="headline"><div><div class="eyebrow">MARKET TERMINAL · PRE-RELEASE 03P</div><h1>Market overview <span>& data integrity</span></h1><p>Read-only Binance trade-price candles when available. No trading signals, order submission or private report uploads.</p></div><div class="safe">READ ONLY · NO ORDERS</div></div>
+    <section class="controls" aria-label="Market controls">
+      <div class="field pair-field"><label for="pair">Perpetual pair</label><div class="searchrow"><input id="pair" type="text" list="pairlist" value="BTCUSDT" maxlength="18" spellcheck="false" autocomplete="off" aria-describedby="pair-help"><datalist id="pairlist"><option value="BTCUSDT"></option><option value="ETHUSDT"></option><option value="SOLUSDT"></option><option value="BNBUSDT"></option><option value="XAUUSDT"></option></datalist><button id="loadPair" class="primary">Open pair</button></div><small id="pair-help">Refresh fetches the searchable supported-symbol list from Binance USD-M metadata. Favorites are initial suggestions.</small></div>
+      <div class="field"><label>Chart timeframe</label><div id="tfTabs" class="tabs" role="group" aria-label="Chart timeframe"><button data-tf="4h" class="active">4H</button><button data-tf="1h">1H</button><button data-tf="15m">15m</button></div></div>
+      <div class="field"><label>Data mode</label><div id="viewTabs" class="tabs" role="group" aria-label="Data mode"><button data-view="market" class="active">Current market</button><button data-view="snapshot" hidden disabled>Report snapshot</button></div></div>
+      <div class="field actions"><label>Actions</label><div class="actionbuttons"><button id="refresh">Refresh market</button><button id="archive" hidden disabled>Sep 2026 archive sample</button></div></div>
+    </section>
+    <div id="status" class="status" role="status" aria-live="polite">Select a pair and choose Refresh market to request Binance market data.</div>
+    <section class="stats" aria-label="Timestamp status">
+      <div class="stat"><small>DATA SOURCE</small><strong id="source">—</strong></div>
+      <div class="stat"><small>MARKET RETRIEVED (PHT)</small><strong id="marketTime">Not retrieved</strong></div>
+      <div class="stat"><small>LAST COMPLETED CANDLE (PHT)</small><strong id="lastClose">—</strong></div>
+      <div class="stat"><small>ANALYSIS CUTOFF (PHT)</small><strong id="analysisTime">No saved assessment</strong></div>
+    </section>
+    <div class="columns">
+      <section class="panel chartpanel" aria-label="Chart"><div class="panelhead"><div><div class="eyebrow">CANDLESTICK VIEWER</div><h2 id="chartName">BTCUSDT <span>· 4H</span></h2></div><div id="dataPill" class="pill">No market data</div></div>
+      <div id="integrityState" class="status" role="status">No market evidence loaded.</div>
+      <details><summary>Source receipts, missing intervals and quarantines</summary><pre id="receiptDetails">—</pre></details>
+      <div id="chart" role="img" aria-label="Candlestick chart. Refer to candle table for accessible values."></div>
+      <div class="chartfoot"><div id="chartLegend">No annotated analysis loaded. Basic price candles only.</div><div class="navsmall"><button id="older" title="Older candles">← Older</button><button id="newer" title="Newer candles">Newer →</button></div></div>
+      <details><summary>Available candle data (accessible table)</summary><div class="tablewrap"><table><thead><tr><th>Opens (PHT)</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th><th>Integrity</th></tr></thead><tbody id="candleRows"></tbody></table></div></details>
+      </section>
+      <aside class="panel reportpanel" aria-label="Saved report" hidden><div class="eyebrow">DEFERRED TO RELEASE B · NOT PUBLIC</div><div class="reporthead"><h2 id="reportPair">BTCUSDT</h2><span id="decision" class="decision neutral">NO REPORT</span></div><p class="muted" id="reportState">No saved assessment for this pair. Current candles are NOT a new Fredy analysis.</p>
+        <div class="repmet"><span>Analysis timestamp</span><strong id="reportDate">—</strong></div>
+        <div class="repmet"><span>Publication timestamp</span><strong id="publishDate">—</strong></div>
+        <label for="snapshotHistory">Preview history (cleared on reload)</label><select id="snapshotHistory" disabled></select><button id="exportReport" disabled>Export exact original JSON</button>
+        <details><summary>Imported claims and evidence limits</summary><p id="claimedDecision">—</p><p id="reportHash">—</p><p id="reportWarnings">—</p></details>
+        <div class="reportblock"><h3>Imported methodology text · unverified</h3><p id="coachText">Wala pang available na saved report para sa pair na ito.</p></div>
+        <div class="reportblock"><h3>Independent Analysis</h3><p id="independentText">Walang bagong conclusion mula sa live chart alone.</p></div>
+        <div class="reportblock"><h3>Risk / invalidation</h3><p id="riskText">Walang verified entry, stop loss, o target.</p></div>
+        <label class="fileload">Preview a local structured report JSON (not uploaded)<input id="reportFile" type="file" accept=".json,application/json"></label><small class="dim">Private report file stays in this browser tab. This starter does not publish or persist it.</small>
+      </aside>
+    </div>
+    <section class="notes"><div><strong>Data and analysis are intentionally separate.</strong><p>Market prices can change. A saved WAIT, LONG SETUP, SHORT SETUP or NO TRADE stays frozen until a new analysis is performed and published.</p></div><div><strong>Website status</strong><p>Market-only pre-release. Provider availability, actual Pages-origin connectivity and report analysis are not yet certified.</p></div></section>
+  </main>
+  <footer>TradingView Lightweight Charts™ · Copyright (с) 2025 TradingView, Inc. <a href="https://www.tradingview.com" target="_blank" rel="noopener noreferrer">TradingView</a> · Educational research only · No Coach endorsement · No automated trades</footer>
+</div>
+</body></html>
