@@ -11,7 +11,7 @@
 <script defer src="./core.js" integrity="sha384-7V9n02LAR0hIgcQRtDCUOkJ8EBWFdfR27j359YqILnamtEy+EjMNweKgW+W5mWmb"></script>
 <script defer src="./research-overlays.js" integrity="sha384-3hrlu3SuYtGTuwqDDS1UFBAjdhd6PTmUew34hTkvKnWjWbvJMRDJy9rtpgVz1NK7"></script>
 <script defer src="./strategy-triage.js" integrity="sha384-YvPOBTwknrBroU4fPEqtYIsffkgY7X3xMHdf2vY7D1rzDIHwQVKLw4SvsI4GFuaT"></script>
-<script defer src="./app.js" integrity="sha384-xq++BRUiIgEV/wsXmw14t3ZJ7f6L8UpJMvC+apjG6KCgUSbN/Ip6HKJUIAUcLW0U"></script>
+<script defer src="./app.js" integrity="sha384-wWM8tdfJJWkbAh84joq51Fjjx0ftpDVR1fsTklaHALq3+RgJWv+emIa7RHKLXkPu"></script>
 </head>
 <body>
 <div class="app">
@@ -25,7 +25,7 @@
       <div class="field pair-field"><label for="pair">Perpetual pair</label><div class="searchrow"><input id="pair" type="text" list="pairlist" value="BTCUSDT" maxlength="18" spellcheck="false" autocomplete="off" aria-describedby="pair-help"><datalist id="pairlist"><option value="BTCUSDT"></option><option value="ETHUSDT"></option><option value="SOLUSDT"></option><option value="BNBUSDT"></option><option value="XAUUSDT"></option></datalist><button id="loadPair" class="primary">Open pair</button></div><small id="pair-help">Refresh fetches the searchable supported-symbol list from Binance USD-M metadata. Favorites are initial suggestions.</small></div>
       <div class="field"><label>Chart timeframe</label><div id="tfTabs" class="tabs" role="group" aria-label="Chart timeframe"><button data-tf="4h" class="active">4H</button><button data-tf="1h">1H</button><button data-tf="15m">15m</button></div></div>
       <div class="field"><label>Data mode</label><div id="viewTabs" class="tabs" role="group" aria-label="Data mode"><button data-view="market" class="active">Current market</button><button data-view="snapshot" hidden disabled>Report snapshot</button></div></div>
-      <div class="field actions"><label>Actions</label><div class="actionbuttons"><button id="refresh">Refresh market</button><button id="archive" hidden disabled>Sep 2026 archive sample</button></div></div>
+      <div class="field actions"><label>Actions</label><div class="actionbuttons"><button id="refresh">Refresh market</button><button id="runFullResearch" class="primary" type="button" title="Load all three native timeframes and show research candidates; no trade signal">Review 4H + 1H + 15m</button><button id="archive" hidden disabled>Sep 2026 archive sample</button></div></div>
     </section>
     <div id="status" class="status" role="status" aria-live="polite">Select a pair and choose Refresh market to request Binance market data.</div>
     <section class="stats" aria-label="Timestamp status">
