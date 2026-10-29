@@ -8,6 +8,9 @@
 .research-panel #researchStatus{color:#d4e3fb;font-size:12px;line-height:1.7}.research-panel #researchEvidence p{padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;color:#b7cce8;line-height:1.55}
 .research-panel small{display:block;color:#8ca7c6;font-size:11px;line-height:1.6;margin-top:10px}
 
+/* Causal research review: readable evidence before diagnostic counts. */
+.strategy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}.strategy-card{min-width:0;background:#0b1728;border:1px solid #2b405b;border-radius:10px;padding:14px}.strategy-card h4{color:#91baff;font-size:13px;margin:0 0 10px}.strategy-card p,.review-next{overflow-wrap:anywhere}.location-review{border-left:2px solid #5c91ca;padding-left:10px;margin:12px 0}.review-next{background:#162b46;padding:12px!important;border-radius:8px}#strategyReview h3{font-size:18px;margin:12px 0}.strategy-card p:last-child{border-bottom:0!important}@media(max-width:768px){.strategy-grid{grid-template-columns:1fr}}
+
 /* Release A: market-only until analysis report parity and authentication are verified. */
 .market-only .columns { grid-template-columns: minmax(0, 1fr); }
 .market-only .reportpanel, .market-only [data-view="snapshot"], .market-only #archive { display: none !important; }
