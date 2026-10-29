@@ -24,3 +24,9 @@ TradingView Lightweight Charts 5.2.0 is vendored under [Apache-2.0](vendor/LICEN
 ## Quickstart release candidate (October 29, 2026)
 
 The new one-click button loads 4H/1H/15m **in parallel** with original bounded timeouts and all-or-nothing data acceptance. It applies the existing corrected FSA research screening (WAIT or INSUFFICIENT DATA), not an automatic Coach-qualified entry/exit. The full private regression, clean eleven-file exporter and exact script SRI must pass before this public branch is merged. Owner-origin Binance transport remains region-dependent and is not certified by synthetic browser tests. The old public main commit `079d7ba723efb6eff1d6dc2d0d36c6c47c3cad54` remains the pre-quickstart rollback revision.
+
+
+## Causal research review — October 29, 2026
+
+The review now explains 4H pivot context, dated 1H candidate levels, geometric 15m contacts and later break/sweep candidates, conditional confirmation routes and non-executable structural references. Open **Review 4H + 1H + 15m** to inspect it. Research remains opt-in, dependent on current native evidence, and limited to WAIT / INSUFFICIENT DATA. Candidate contact does not establish a qualified reaction or a trade. No stops, targets, orders or profitability claims are generated.
+

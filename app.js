@@ -147,23 +147,27 @@
     summary.textContent='INDEPENDENT ANALYSIS · '+a.classification+' · '+available.length+
       '/3 clean candle histories; receipt freshness assessed separately. No Coach-issued or executable trade signal.'+
       (state.overlayAllowed?' Chart annotations permitted as research candidates.':' CHART ANNOTATIONS SUPPRESSED until all three timeframe receipts and native comparisons pass.');
+    renderSequenceReview(a,body);
+    const diagnostics=document.createElement('details'),diagnosticTitle=document.createElement('summary');
+    diagnosticTitle.textContent='Geometry counts and S1–S4 review requirements';diagnostics.append(diagnosticTitle);
     for(const tf of frames) {
       const g=state.datasets[tf]?R.inspect(state.datasets[tf],tf):null;
       const p=document.createElement('p');
       p.textContent=tf.toUpperCase()+' — '+(g?.status||'MISSING')+
         ' · pivots '+(g?.pivots.length||0)+' · geometric FVGs '+(g?.fvgs.length||0)+
         ' · breaks '+(g?.breaks.length||0)+' · sweeps '+(g?.sweeps.length||0);
-      body.append(p);
+      diagnostics.append(p);
     }
     const context=document.createElement('p');
     context.textContent='4H structural screening: '+a.structure.label+' · '+a.structure.reason;
-    body.append(context);
+    diagnostics.append(context);
     for(const b of a.branches){
       const p=document.createElement('p');
       p.textContent=b.id+' — '+b.name+': '+b.relevance+
         '. '+b.status+'. Still requires: '+b.missing.join('; ')+'.';
-      body.append(p);
+      diagnostics.append(p);
     }
+    body.append(diagnostics);
     for(const error of a.errors){
       const p=document.createElement('p');
       p.textContent='INTEGRITY / COVERAGE: '+error;body.append(p);
@@ -171,6 +175,46 @@
     const note=document.createElement('p');
     note.textContent='Research-only screening: confirmed pivot markers are placed at their causal confirmation close. Price-only gaps, breaks and sweeps do not certify a Coach-qualified location or reaction. No entry, SL, TP, risk ratio, fill, Coach endorsement or profitability claim is produced.';
     body.append(note);
+  }
+  function renderSequenceReview(a,body){
+    const review=a.sequenceReview,section=document.createElement('section');
+    section.id='strategyReview';section.setAttribute('aria-label','Causal strategy research review');
+    const title=document.createElement('h3');title.textContent='Strategy review · '+a.symbol;section.append(title);
+    const next=document.createElement('p');next.className='review-next';next.textContent=review.next;section.append(next);
+    if(review.status!=='RESEARCH_REVIEW'){body.append(section);return;}
+    const price=v=>Number(v).toLocaleString('en-US',{maximumSignificantDigits:12});
+    const line=(parent,text)=>{const p=document.createElement('p');p.textContent=text;parent.append(p);};
+    line(section,'Latest completed 15m close: '+price(review.latestCompleted15m.close)+' · '+pht(review.latestCompleted15m.closeMs,true)+' PHT. This is a dated candle close, not a live quote.');
+    const grid=document.createElement('div');grid.className='strategy-grid';
+    const card=(heading)=>{const div=document.createElement('div');div.className='strategy-card';const h=document.createElement('h4');h.textContent=heading;div.append(h);grid.append(div);return div;};
+    const context=card('1 · 4H context');
+    line(context,a.structure.label.replaceAll('_',' '));
+    for(const [name,points] of [['High candidates',a.structure.highs||[]],['Low candidates',a.structure.lows||[]]]){
+      line(context,name+': '+(points.length?points.map(p=>price(p.price)+' (known '+pht(p.knownAtMs,true)+' PHT)').join(' → '):'Not enough confirmed candidates.'));
+    }
+    line(context,'Two pivot comparisons are an FSA heuristic. Trend significance and valid range boundaries still require review.');
+    const locations=card('2 · 1H locations and 15m chronology');
+    if(!review.locations.length)line(locations,'No confirmed 1H pivot candidates in this history.');
+    for(const l of review.locations){
+      const item=document.createElement('div');item.className='location-review';
+      line(item,(l.kind==='swing-high'?'High':'Low')+' candidate '+price(l.price)+' · confirmed '+pht(l.knownAtMs,true)+' PHT');
+      line(item,l.status.replaceAll('_',' ')+' · '+l.coverage.replaceAll('_',' '));
+      if(l.contact)line(item,'First observed contact candle: '+pht(l.contact.openMs,true)+' → '+pht(l.contact.closeMs,true)+' PHT. Contact is not a qualified reaction.');
+      for(const e of l.laterEvents)line(item,'Later '+e.kind+' at '+price(e.level)+' · known '+pht(e.knownAtMs,true)+' PHT');
+      if(l.contact&&!l.laterEvents.length)line(item,'No subsequent break/sweep candidate observed in the covered window. Same-candle event order is unknown.');
+      if(l.closeBeyond)line(item,'Completed close beyond this candidate: '+price(l.closeBeyond.close)+' · '+pht(l.closeBeyond.closeMs,true)+' PHT. Reassess its relevance.');
+      locations.append(item);
+    }
+    const confirmation=card('3 · Confirmation routes');
+    line(confirmation,'SOURCE PLAN REVIEW REQUIRED');
+    for(const route of review.confirmation.routes)line(confirmation,route);
+    line(confirmation,review.confirmation.sameCandleOrder);
+    const risk=card('4 · Invalidation and risk');
+    const ref=review.reference;
+    line(risk,ref?'4H structural reference: '+price(ref.price)+' · '+ref.kind+' · known '+pht(ref.knownAtMs,true)+' PHT.'+
+      (ref.crossedByLatestClose?' The latest completed close is already beyond this reference.':''):'No directional 4H structural reference established.');
+    line(risk,review.risk.reason);
+    section.append(grid);for(const limit of review.limitations)line(section,limit);body.append(section);
   }
   function drawResearchMarkers(lib,series,pack){
     if(!state.overlayAllowed||!state.researchEnabled||state.view!=='market'||!R)return;
@@ -184,6 +228,11 @@
     if(marks.length&&typeof lib.createSeriesMarkers==='function')lib.createSeriesMarkers(series,marks);
     // Geometric FVG boundary lines, not tradeable AOIs or buy/sell orders.
     if(typeof series.createPriceLine==='function'){
+      if(state.tf==='1h'){
+        for(const pivot of [...inspected.pivots.filter(p=>p.kind==='swing-high').slice(-2),...inspected.pivots.filter(p=>p.kind==='swing-low').slice(-2)]){
+          series.createPriceLine({price:pivot.price,color:'#82b9ff',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:'FSA 1H candidate'});
+        }
+      }
       for(const gap of inspected.fvgs.slice(-2)){
         for(const price of [gap.low,gap.high]){
           series.createPriceLine({price,color:gap.kind==='bullish-gap'?'#538fbd':'#ab7293',lineWidth:1,lineStyle:2,axisLabelVisible:false,title:'FSA gap edge'});

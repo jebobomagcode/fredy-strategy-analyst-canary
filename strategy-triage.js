@@ -52,6 +52,53 @@
       reason:'Comparison of two most recent confirmed 4H high/low candidates; significance and range validity not independently established.',
       highs:[h0,h1],lows:[l0,l1]};
   }
+  // Per-level chronology, not a signal classifier. A pivot is usable only
+  // AFTER its right-hand confirmation candle closes. A contact candle cannot
+  // also prove the order of a break/sweep inside that same candle.
+  function reviewLocation(level,rows,events){
+    const eligible=rows.filter(r=>r.time*1000>level.knownAtMs);
+    const contact=eligible.find(r=>r.low<=level.price&&r.high>=level.price);
+    const fullWindow=!!rows.length&&rows[0].time*1000<=level.knownAtMs+1;
+    const later=contact?events.filter(e=>e.time*1000>contact.closeTime&&e.knownAtMs<=rows.at(-1).closeTime):[];
+    const beyond=eligible.find(r=>level.kind==='swing-high'?r.close>level.price:r.close<level.price);
+    return {kind:level.kind,price:level.price,pivotTime:level.time,knownAtMs:level.knownAtMs,
+      coverage:fullWindow?'FROM_LEVEL_CONFIRMATION':'PARTIAL_15M_WINDOW',
+      status:contact?'CONTACT_OBSERVED_IN_WINDOW':fullWindow?'NO_CONTACT_IN_COVERED_WINDOW':'CONTACT_UNKNOWN_BEFORE_WINDOW',
+      contact:contact?{openMs:contact.time*1000,closeMs:contact.closeTime}:null,
+      // "First" always means first observed in the available window.
+      laterEvents:later.slice(-3).map(e=>({kind:e.kind,level:e.level,openMs:e.time*1000,knownAtMs:e.knownAtMs})),
+      closeBeyond:beyond?{closeMs:beyond.closeTime,close:beyond.close}:null,
+      qualifiedZone:false,qualifiedConfirmation:false};
+  }
+  function explainSequence(packs,data,context){
+    const rows=packs['15m'].rows,latest=rows.at(-1);
+    const events=[...data['15m'].breaks,...data['15m'].sweeps].sort((a,b)=>a.knownAtMs-b.knownAtMs);
+    const levels=data['1h'].pivots.filter(p=>p.knownAtMs<=latest.closeTime);
+    const selected=[...levels.filter(p=>p.kind==='swing-high').slice(-2),...levels.filter(p=>p.kind==='swing-low').slice(-2)]
+      .sort((a,b)=>b.knownAtMs-a.knownAtMs);
+    const locations=selected.map(p=>reviewLocation(p,rows,events));
+    const contacts=locations.filter(p=>p.contact).length;
+    const sequenced=locations.filter(p=>p.laterEvents.length).length;
+    const reference=context.label==='HEURISTIC_RISING'?context.lows.at(-1):context.label==='HEURISTIC_FALLING'?context.highs.at(-1):null;
+    const next=sequenced?'Review the observed contact → later event sequence against the applicable source plan. Geometry alone does not qualify the zone or confirmation.':
+      contacts?'A candidate level was contacted. Check subsequent completed 15m evidence and the applicable confirmation route.':
+      locations.length?'No contact is established in the covered 15m window for these candidates. Inspect coverage and qualify the 1H location before interpreting confirmation.':
+      'No confirmed 1H pivot candidates are available. A qualified location cannot be inferred from the candle count.';
+    return {schema:'fredy.sequence-review.v1',status:'RESEARCH_REVIEW',
+      latestCompleted15m:{close:latest.close,closeMs:latest.closeTime},
+      locations,contactCount:contacts,sequencedLocationCount:sequenced,next,
+      reference:reference?{kind:reference.kind,price:reference.price,knownAtMs:reference.knownAtMs,
+        crossedByLatestClose:reference.kind==='swing-low'?latest.close<reference.price:latest.close>reference.price}:null,
+      confirmation:{status:'SOURCE_PLAN_REVIEW_REQUIRED',
+        routes:['Qualified location followed by the source-specific retest/reaction route.',
+          'An explicitly documented no-retest route retains its own conditions; retest is not universal.',
+          'The bullish strong-BOS + RSI > 60 example is conditional; no bearish RSI < 40 mirror is inferred.'],
+        sameCandleOrder:'UNKNOWN: a contact and an event in one 15m candle do not establish their intrabar order.'},
+      risk:{status:'NOT_EVALUATED',reason:'A structural reference is not a stop. Executable entry, invalidation, targets, sizing, costs and aggregate exposure require separate evidence.'},
+      limitations:['1H pivots are FSA candidates, not authenticated Coach zones.',
+        'A candle spanning a level proves geometric contact only, not reaction, retest validity or a fill.',
+        'Contacts and events are limited to the fetched window; absence is not proof of no earlier event.']};
+  }
   function assess(input){
     const symbol=String(input?.symbol||'').toUpperCase();
     const raw=input?.packs||{},freshness=input?.freshness||{};
@@ -110,9 +157,12 @@
       methodology:'Project research categories S1–S4, not verified Coach-authored labels. Common documented routine: 4H context → 1H location → 15m confirmation → risk; source-specific daily, 5m and 3m variants remain distinct. Fibonacci/session overlays and personal execution remain separate.',
       researchProvenance:'All pivot, gap, sweep, range, and direction screening is independent FSA geometry, NOT mechanically certified Coach criteria.',
       structure:context,location,postLocationCandidates:afterLocation,branches,
+      sequenceReview:label==='WAIT'?explainSequence(raw,data,context):{
+        schema:'fredy.sequence-review.v1',status:'INSUFFICIENT DATA',locations:[],reference:null,
+        next:'Refresh all three native timeframe histories and resolve the integrity errors before reviewing a sequence.'},
       remaining:MISSING.slice(),risk:{evaluated:false,entry:null,stop:null,targets:[],grossR:null,costsVerified:false},
       signalIssued:false,coachConfirmed:false,executedTrade:false
     };
   }
-  return Object.freeze({assess,overlap,structure,MARKET});
+  return Object.freeze({assess,overlap,structure,reviewLocation,MARKET});
 });
