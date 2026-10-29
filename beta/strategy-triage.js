@@ -100,14 +100,14 @@
     }:{breaks:[],sweeps:[],warning:'No valid temporal comparison.'};
     const branches=[
       {id:'S1',name:'Continuation pullback',relevance:context.label==='HEURISTIC_RISING'||context.label==='HEURISTIC_FALLING'?'CONTEXT CANDIDATE':'NOT ESTABLISHED',missing:['4H structural significance and directional context','1H zone relevance and actual reaction','15m completed post-zone confirmation through an admissible route','Feasible entry, stop, target and costs']},
-      {id:'S2',name:'Breakout / retest',relevance:'NOT ESTABLISHED',missing:['Meaningful completed structural break','Either qualified retest/reaction or Coach-documented bullish strong BOS + RSI > 60 exception','Risk feasibility; no invented bearish no-retest mirror']},
+      {id:'S2',name:'Breakout / retest',relevance:'NOT ESTABLISHED',missing:['Meaningful completed structural break','Source-specific route: qualified retest/reaction, bullish strong BOS + RSI > 60 example, or another explicitly documented no-retest path; retain that plan\'s conditions','Risk feasibility; no invented bearish RSI < 40 mirror; general upward/downward no-retest teaching does not supply that numeric threshold']},
       {id:'S3',name:'Range reversal',relevance:context.label==='MIXED_OR_RANGE_UNCONFIRMED'?'POSSIBLE RANGE CONTEXT':'NOT ESTABLISHED',missing:['Confirmed horizontal range boundaries','Boundary proximity and qualifying lower-timeframe reversal','Structural invalidation and opposing-range target']},
       {id:'S4',name:'Countertrend reaction',relevance:'NOT ESTABLISHED',missing:['Intact confirmed higher-timeframe trend','Meaningful opposing supply/demand and liquidity location','Qualified reversal/rejection, short-lived target and invalidation']}
     ].map(x=>({...x,status:'DISCRETIONARY REVIEW REQUIRED',qualified:false}));
     return {
       schema:'fredy.independent-triage.v1',symbol,market:MARKET,classification:label,
       asOfByTimeframeMs:lastClosedMs,errors,comparison:cross,
-      methodology:'Coach-derived sequence: 4H context → 1H location → 15m confirmation → risk. Source branches S1–S4; S5/S6 overlays, S7 personal execution distinct.',
+      methodology:'Project research categories S1–S4, not verified Coach-authored labels. Common documented routine: 4H context → 1H location → 15m confirmation → risk; source-specific daily, 5m and 3m variants remain distinct. Fibonacci/session overlays and personal execution remain separate.',
       researchProvenance:'All pivot, gap, sweep, range, and direction screening is independent FSA geometry, NOT mechanically certified Coach criteria.',
       structure:context,location,postLocationCandidates:afterLocation,branches,
       remaining:MISSING.slice(),risk:{evaluated:false,entry:null,stop:null,targets:[],grossR:null,costsVerified:false},

@@ -3,6 +3,11 @@
 #snapshotHistory{width:100%;max-width:100%;background:#0b1728;color:#dbe8f6;padding:10px;border:1px solid #48627e;margin:8px 0}#reportHash,#reportWarnings,pre{overflow-wrap:anywhere;white-space:pre-wrap;font-size:11px}#decision{white-space:normal;text-align:center}.chartfoot{flex-wrap:wrap}.navsmall{flex-shrink:0}#receiptDetails{max-height:260px;overflow:auto}#chart svg text{font-size:10px}#integrityState{margin:0 0 12px}#reportState{font-weight:650;color:#ffd792}
 .panelhead{align-items:flex-start}.pill{white-space:normal;max-width:52%;text-align:right}.status{overflow-wrap:anywhere}.reporthead{align-items:flex-start}#chartName{overflow-wrap:anywhere}label,select{max-width:100%}
 
+/* Mission 05A: private experimental overlay panel. The public canary is unchanged. */
+.research-panel{margin-top:14px}.research-panel .panelhead h2{font-size:17px;margin:6px 0 8px}.research-panel .panelhead{flex-wrap:wrap}
+.research-panel #researchStatus{color:#d4e3fb;font-size:12px;line-height:1.7}.research-panel #researchEvidence p{padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;color:#b7cce8;line-height:1.55}
+.research-panel small{display:block;color:#8ca7c6;font-size:11px;line-height:1.6;margin-top:10px}
+
 /* Release A: market-only until analysis report parity and authentication are verified. */
 .market-only .columns { grid-template-columns: minmax(0, 1fr); }
 .market-only .reportpanel, .market-only [data-view="snapshot"], .market-only #archive { display: none !important; }

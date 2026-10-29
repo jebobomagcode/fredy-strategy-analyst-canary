@@ -2,11 +2,11 @@
 'use strict';
 (() => {
   const $ = (id) => document.getElementById(id);
-  const C = window.FSA, PERIOD_MS = C.PERIOD_MS;
+  const C = window.FSA, R = window.FSAResearch, S = window.FSAStrategyTriage, PERIOD_MS = C.PERIOD_MS;
   const snapshots = new C.SnapshotStore();
   let activeRequest = null, importToken = 0;
   const selected = new Map();
-  const state = { pair: 'BTCUSDT', tf: '4h', view: 'market', token: 0, datasets: {}, snapshot: null, report: null, chart: null, series: null, chartResize: null, logicalEnd: null, metaCache: null, source: '—', retrieved: null };
+  const state = { pair: 'BTCUSDT', tf: '4h', view: 'market', token: 0, datasets: {}, snapshot: null, report: null, chart: null, series: null, chartResize: null, logicalEnd: null, metaCache: null, source: '—', retrieved: null, researchEnabled: false, overlayAllowed: false };
   // Previews are immutable and tab-only; never persisted or certified as analysis.
 
   function pht(ms, seconds = false) {
@@ -108,7 +108,90 @@
     $('chart').innerHTML = parts.join(''); // Only numerically validated data and locally-generated SVG strings.
     const note = document.createElement('div'); note.className = 'fallback-info'; note.textContent = 'Offline fallback viewer · TradingView library not loaded'; $('chart').append(note);
   }
-  function renderCandles(pack) {
+  // Annotations are transient candidate geometry, not historical positions or
+  // source-confirmed signals. Fail closed unless the complete three-frame
+  // research assessment has current receipts and consistent native candles.
+  // The price chart itself remains available as explicitly dated market data.
+  function overlayEligible() {
+    if(state.view!=='market'||!state.researchEnabled||!R||!S)return false;
+    const freshness={};
+    for(const tf of ['4h','1h','15m']){
+      const pack=state.datasets[tf];
+      if(!pack?.receipt)return false;
+      try {freshness[tf]=C.freshness(pack,tf,pack.receipt,Date.now());}
+      catch (_) {return false;}
+    }
+    try {
+      return S.assess({symbol:state.pair,packs:state.datasets,freshness}).classification==='WAIT';
+    } catch (_) {return false;}
+  }
+  function renderResearchPanel() {
+    const pane=$('researchPanel'),summary=$('researchStatus'),body=$('researchEvidence');
+    const active=state.view==='market'&&state.researchEnabled;
+    pane.hidden=state.view!=='market';
+    $('toggleResearch').textContent=active?'Hide research annotations':'Show research annotations';
+    body.replaceChildren();
+    if(!R||!S){summary.textContent='Research modules unavailable; no assessment performed.';return;}
+    if(!active){summary.textContent='RESEARCH LAYER OFF · No assessment generated.';return;}
+    const frames=['4h','1h','15m'],freshness={};
+    for(const tf of frames) {
+      const p=state.datasets[tf];
+      try {
+        freshness[tf]=p?.receipt?C.freshness(p,tf,p.receipt,Date.now()):null;
+      } catch(error) {
+        freshness[tf]={state:'CAUTION',recheckDue:true};
+      }
+    }
+    const a=S.assess({symbol:state.pair,packs:state.datasets,freshness});
+    const available=frames.filter(tf=>a.asOfByTimeframeMs[tf]);
+    summary.textContent='INDEPENDENT ANALYSIS · '+a.classification+' · '+available.length+
+      '/3 clean candle histories; receipt freshness assessed separately. No Coach-issued or executable trade signal.'+
+      (state.overlayAllowed?' Chart annotations permitted as research candidates.':' CHART ANNOTATIONS SUPPRESSED until all three timeframe receipts and native comparisons pass.');
+    for(const tf of frames) {
+      const g=state.datasets[tf]?R.inspect(state.datasets[tf],tf):null;
+      const p=document.createElement('p');
+      p.textContent=tf.toUpperCase()+' — '+(g?.status||'MISSING')+
+        ' · pivots '+(g?.pivots.length||0)+' · geometric FVGs '+(g?.fvgs.length||0)+
+        ' · breaks '+(g?.breaks.length||0)+' · sweeps '+(g?.sweeps.length||0);
+      body.append(p);
+    }
+    const context=document.createElement('p');
+    context.textContent='4H structural screening: '+a.structure.label+' · '+a.structure.reason;
+    body.append(context);
+    for(const b of a.branches){
+      const p=document.createElement('p');
+      p.textContent=b.id+' — '+b.name+': '+b.relevance+
+        '. '+b.status+'. Still requires: '+b.missing.join('; ')+'.';
+      body.append(p);
+    }
+    for(const error of a.errors){
+      const p=document.createElement('p');
+      p.textContent='INTEGRITY / COVERAGE: '+error;body.append(p);
+    }
+    const note=document.createElement('p');
+    note.textContent='Research-only screening: confirmed pivot markers are placed at their causal confirmation close. Price-only gaps, breaks and sweeps do not certify a Coach-qualified location or reaction. No entry, SL, TP, risk ratio, fill, Coach endorsement or profitability claim is produced.';
+    body.append(note);
+  }
+  function drawResearchMarkers(lib,series,pack){
+    if(!state.overlayAllowed||!state.researchEnabled||state.view!=='market'||!R)return;
+    const inspected=R.inspect(pack,state.tf);
+    if(inspected.status!=='RESEARCH CANDIDATES')return;
+    const marks=[
+      ...inspected.pivots.slice(-10).map(v=>({time:(v.knownAtMs+1-C.PERIOD_MS[state.tf])/1000,position:v.kind==='swing-high'?'aboveBar':'belowBar',color:'#82b9ff',shape:'circle',text:v.kind==='swing-high'?'FSA H (known)':'FSA L (known)'})),
+      ...inspected.breaks.slice(-5).map(v=>({time:v.time,position:v.kind.startsWith('bullish')?'belowBar':'aboveBar',color:'#e9c16e',shape:'square',text:'FSA break'})),
+      ...inspected.sweeps.slice(-5).map(v=>({time:v.time,position:v.kind.startsWith('lower')?'belowBar':'aboveBar',color:'#c8a6f6',shape:'circle',text:'FSA sweep'}))
+    ].sort((a,b)=>a.time-b.time);
+    if(marks.length&&typeof lib.createSeriesMarkers==='function')lib.createSeriesMarkers(series,marks);
+    // Geometric FVG boundary lines, not tradeable AOIs or buy/sell orders.
+    if(typeof series.createPriceLine==='function'){
+      for(const gap of inspected.fvgs.slice(-2)){
+        for(const price of [gap.low,gap.high]){
+          series.createPriceLine({price,color:gap.kind==='bullish-gap'?'#538fbd':'#ab7293',lineWidth:1,lineStyle:2,axisLabelVisible:false,title:'FSA gap edge'});
+        }
+      }
+    }
+  }
+  function renderCandles(pack, retainedLogicalRange=null) {
     clearChart();const rows=pack.rows, format=C.priceFormat(pack,pack.receipt?.instrument);
     if (!rows.length) { blankChart('No completed candles'); return; }
     const lib = window.LightweightCharts;
@@ -125,8 +208,15 @@
         });
         const series = c.addSeries(lib.CandlestickSeries, {upColor:'#3ed5aa',downColor:'#ed767f',wickUpColor:'#3ed5aa',wickDownColor:'#ed767f',borderVisible:false,priceFormat:{type:'price',...format}});
         series.setData(rows.map(x=>quarantined(pack,x)?{time:x.time}:{time:x.time,open:x.open,high:x.high,low:x.low,close:x.close}));
+        drawResearchMarkers(lib,series,pack);
         const start=Math.max(0,rows.length-80);
-        c.timeScale().setVisibleLogicalRange({from:start,to:rows.length+2});
+        // Only the expiry-driven redraw may carry this viewport forward.
+        // Explicit pair/timeframe changes and new market fetches always reset.
+        const keep=retainedLogicalRange&&Number.isFinite(retainedLogicalRange.from)&&
+          Number.isFinite(retainedLogicalRange.to)&&retainedLogicalRange.to>retainedLogicalRange.from;
+        c.timeScale().setVisibleLogicalRange(keep
+          ? {from:retainedLogicalRange.from,to:retainedLogicalRange.to}
+          : {from:start,to:rows.length+2});
         state.chart = c; state.series = series;
         state.chartResize = new ResizeObserver(()=>{if (state.chart===c){c.applyOptions({width:container.clientWidth,height:container.clientHeight});}});
         state.chartResize.observe(container);
@@ -138,15 +228,31 @@
     if (state.view === 'snapshot') return state.report?.frames?.[state.tf] ?? null;
     return state.datasets[state.tf] ?? null;
   }
-  function view() {
-    applyControls();renderReport();
+  function view({preserveChartRange=false}={}) {
+    // Capture before renderCandles removes the old chart. This is never used
+    // for pair/timeframe changes: their explicit view() calls reset the chart.
+    let retainedLogicalRange=null;
+    if(preserveChartRange&&state.view==='market'&&state.chart){
+      try {retainedLogicalRange=state.chart.timeScale().getVisibleLogicalRange();}
+      catch (_) {retainedLogicalRange=null;}
+    }
+    state.overlayAllowed=overlayEligible();
+    applyControls();renderReport();renderResearchPanel();
     const pack=currentPack();
-    if (pack) { renderCandles(pack);$('source').textContent=state.view==='snapshot'?'UNVERIFIED imported snapshot evidence':(pack.source||state.source);
+    if (pack) { renderCandles(pack,retainedLogicalRange);$('source').textContent=state.view==='snapshot'?'UNVERIFIED imported snapshot evidence':(pack.source||state.source);
       $('marketTime').textContent=state.view==='snapshot'?'Frozen—not a live feed':(pack.retrieved ? pht(pack.retrieved,true) : 'Historical archive');
       $('lastClose').textContent=pht(pack.rows.at(-1).closeTime,true);
       $('dataPill').textContent=`${pack.rows.length} completed · ${pack.gaps} missing bars · ${pack.issues.length} quarantines`;
       updateIntegrity(pack);
-      $('chartLegend').textContent=state.view==='snapshot'?'UNVERIFIED frozen preview. Original annotations are not rendered; v0.3.13 remains canonical.':'Candles only. No BOS/CHoCH/FVG/OB qualification is calculated by this website.';
+      $('chartLegend').textContent=state.view==='snapshot'
+        ? 'UNVERIFIED frozen preview. Original annotations are not rendered; v0.3.13 remains canonical.'
+        : !state.researchEnabled
+        ? 'Candles only. No BOS/CHoCH/FVG/OB qualification is calculated by this website.'
+        : !state.overlayAllowed
+        ? 'CANDLES ONLY · Research markers suppressed: incomplete, stale, or contradictory three-timeframe evidence.'
+        : $('chart').querySelector('svg')
+        ? 'SVG fallback · Candles only; research marker rendering unavailable. No Coach-certified setup.'
+        : 'FSA research-only pivot/break/sweep markers and geometric FVG edges. No Coach-certified setup or trade.';
     } else { blankChart(state.view==='snapshot'?'No complete local snapshot for this pair':'No validated market candles loaded. Use Refresh market or open the September archive.');
       $('integrityState').textContent='No market evidence loaded.';$('integrityState').className='status';$('receiptDetails').textContent='—';$('source').textContent='—';$('marketTime').textContent='Not retrieved';$('lastClose').textContent='—';$('dataPill').textContent='No market data';$('candleRows').replaceChildren(); }
   }
@@ -242,6 +348,7 @@
     document.querySelectorAll('[data-tf]').forEach(b=>b.addEventListener('click',()=>{cancelPending();state.tf=b.dataset.tf;state.logicalEnd=null;view();if(state.view==='market'&&!state.datasets[state.tf])marketRefresh();}));
     document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.view==='snapshot'&&!snapshots.latest(state.pair)){status('No local saved snapshot. Choose a report JSON file first.');return;}cancelPending();state.view=b.dataset.view;state.logicalEnd=null;view();}));
     $('refresh').addEventListener('click',marketRefresh);
+    $('toggleResearch').addEventListener('click',()=>{state.researchEnabled=!state.researchEnabled;view();});
     $('archive').addEventListener('click',archive);
     function navigate(delta) {
       if(state.chart){const scale=state.chart.timeScale(),r=scale.getVisibleLogicalRange();if(r)scale.setVisibleLogicalRange({from:r.from+delta,to:r.to+delta});}
@@ -257,7 +364,25 @@
       catch(err){if(token===importToken)status(`Cannot preview this report: ${err.message}`,'error');}
       finally {$('reportFile').value='';}
     });
-    setInterval(()=>updateIntegrity(),5000);
+    // Browsers can throttle timers in background tabs and BFCache restores.
+    // Revalidate synchronously on foreground transitions, *before* a user
+    // sees old research geometry as if it were still current. No network
+    // request or source receipt is refreshed by these lifecycle events.
+    const reconcileFreshness=()=>{
+      if(state.overlayAllowed!==overlayEligible()){
+        view({preserveChartRange:true});
+        return;
+      }
+      updateIntegrity();
+      if(state.researchEnabled)renderResearchPanel();
+    };
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden)reconcileFreshness();
+    });
+    window.addEventListener('focus',reconcileFreshness);
+    window.addEventListener('pageshow',reconcileFreshness);
+    // Also detect expiration during uninterrupted visible sessions.
+    setInterval(reconcileFreshness,5000);
     view();
     status('Prototype ready. Refresh market for current Binance candles, or choose the labeled September archive sample.');
   }
