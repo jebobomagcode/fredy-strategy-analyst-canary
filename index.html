@@ -9,7 +9,9 @@
 <link rel="stylesheet" href="./styles.css">
 <script defer src="./vendor/lightweight-charts.standalone.production.js" integrity="sha384-q1KYLSKHgBnW5tWYGGR8+6YV4/iPy31dILoF2I1OD7XiVUvHEp/TaxIQVmB0j3R2"></script>
 <script defer src="./core.js" integrity="sha384-7V9n02LAR0hIgcQRtDCUOkJ8EBWFdfR27j359YqILnamtEy+EjMNweKgW+W5mWmb"></script>
-<script defer src="./app.js" integrity="sha384-iCBQFk5WolrsLRc2+DOci6rSp2vSs4nG8Qnixyw291LqRq01TqDqDXhlnaYw0ii2"></script>
+<script defer src="./research-overlays.js" integrity="sha384-3hrlu3SuYtGTuwqDDS1UFBAjdhd6PTmUew34hTkvKnWjWbvJMRDJy9rtpgVz1NK7"></script>
+<script defer src="./strategy-triage.js" integrity="sha384-YvPOBTwknrBroU4fPEqtYIsffkgY7X3xMHdf2vY7D1rzDIHwQVKLw4SvsI4GFuaT"></script>
+<script defer src="./app.js" integrity="sha384-xq++BRUiIgEV/wsXmw14t3ZJ7f6L8UpJMvC+apjG6KCgUSbN/Ip6HKJUIAUcLW0U"></script>
 </head>
 <body>
 <div class="app">
@@ -51,6 +53,13 @@
         <label class="fileload">Preview a local structured report JSON (not uploaded)<input id="reportFile" type="file" accept=".json,application/json"></label><small class="dim">Private report file stays in this browser tab. This starter does not publish or persist it.</small>
       </aside>
     </div>
+    <section id="researchPanel" class="panel research-panel" aria-label="Independent research candidate overlays">
+      <div class="panelhead"><div><div class="eyebrow">INDEPENDENT ANALYSIS · EXPERIMENTAL</div><h2>4H context → 1H location → 15m confirmation → risk</h2></div>
+      <button id="toggleResearch" type="button">Show research annotations</button></div>
+      <p id="researchStatus" class="muted">WAIT · no three-timeframe assessment has been verified.</p>
+      <div id="researchEvidence" aria-live="polite"></div>
+      <small>Research candidates only; no Coach-endorsed signals, actual orders or automated entry/SL/TP. Enable this layer to inspect each timeframe's completed-candle evidence.</small>
+    </section>
     <section class="notes"><div><strong>Data and analysis are intentionally separate.</strong><p>Market prices can change. A saved WAIT, LONG SETUP, SHORT SETUP or NO TRADE stays frozen until a new analysis is performed and published.</p></div><div><strong>Website status</strong><p>Market-only pre-release. Provider availability, actual Pages-origin connectivity and report analysis are not yet certified.</p></div></section>
   </main>
   <footer>TradingView Lightweight Charts™ · Copyright (с) 2025 TradingView, Inc. <a href="https://www.tradingview.com" target="_blank" rel="noopener noreferrer">TradingView</a> · Educational research only · No Coach endorsement · No automated trades</footer>
