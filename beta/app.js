@@ -21,7 +21,7 @@
     $('status').className = 'status' + (type ? ' ' + type : '');
   }
   const normalize = C.normalize;
-  function cancelPending() { ++state.token; ++importToken; activeRequest?.abort(); }
+  function cancelPending() { ++state.token; ++importToken; activeRequest?.abort(); const run=$('runFullResearch'); if(run)run.disabled=false; }
   function clearChart() {
     if (state.chartResize) { state.chartResize.disconnect(); state.chartResize = null; }
     if (state.chart) { state.chart.remove(); state.chart = null; state.series = null; }
@@ -314,6 +314,81 @@
       view();status(`Market retrieval unavailable: ${error.name==='AbortError'?'Request exceeded the bounded retrieval window':error.message}. No alternative market data was substituted.`,'error');
     } finally {clearTimeout(timer);if(activeRequest===controller)activeRequest=null;}
   }
+  // One-click independent research review: three separately receipted native
+  // market histories fetched within the original bounded request window.
+  // Atomic commit: no partial/stale prior-pair histories or synthetic fallback.
+  async function runFullResearch() {
+    cancelPending();
+    const token=state.token, controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),C.MAX_REQUEST_MS);
+    activeRequest=controller;
+    const symbol=state.pair;
+    state.view='market';state.researchEnabled=true;state.datasets={};
+    state.source='—';state.retrieved=null;state.logicalEnd=null;
+    $('runFullResearch').disabled=true;
+    view();status('Loading 4H, 1H and 15m from Binance USD-M for '+symbol+'…');
+    try {
+      const frames=['4h','1h','15m'];
+      const fetchFrame=async tf=>{
+        const startedMs=Date.now(),start=performance.now();
+        const [info,clock]=await Promise.all([
+          jsonGet('https://fapi.binance.com/fapi/v1/exchangeInfo',controller.signal),
+          jsonGet('https://fapi.binance.com/fapi/v1/time',controller.signal)
+        ]);
+        if(token!==state.token)return null;
+        const instrument=C.instrument(info.data,symbol),cutoff=clock.data.serverTime;
+        if(!Number.isSafeInteger(cutoff)||cutoff<=0)throw Error(tf+': missing Binance server clock');
+        const endTime=Math.floor(cutoff/PERIOD_MS[tf])*PERIOD_MS[tf]-1;
+        const url=new URL('https://fapi.binance.com/fapi/v1/klines');
+        for(const [k,v] of Object.entries({symbol,interval:tf,limit:160,endTime}))url.searchParams.set(k,String(v));
+        const data=await jsonGet(url.href,controller.signal);
+        const endClock=await jsonGet('https://fapi.binance.com/fapi/v1/time',controller.signal);
+        if(token!==state.token)return null;
+        if(!Number.isSafeInteger(endClock.data.serverTime)||endClock.data.serverTime<=0)
+          throw Error(tf+': missing final Binance clock');
+        const pack=normalize(data.data,cutoff,tf,true);
+        pack.source='Binance USD-M TRADE_PRICE · '+instrument.contractType;
+        pack.retrieved=Date.now();
+        pack.receipt={market:C.MARKET,instrument,cutoffMs:cutoff,endTime,
+          serverEndMs:endClock.data.serverTime,startedMs,finishedMs:pack.retrieved,
+          durationMs:performance.now()-start,
+          clientClockSkewMs:clock.data.serverTime-(clock.startedMs+clock.finishedMs)/2,
+          requests:[info,clock,data,endClock].map(({text,data,...q})=>q),
+          responseText:data.text};
+        const freshness=C.freshness(pack,tf,pack.receipt,Date.now());
+        if(freshness.state!=='CURRENT'||freshness.recheckDue)
+          throw Error(tf+': incomplete, stale or contradictory provider receipt: '+
+            (freshness.reasons?.join(', ')||'recheck due'));
+        return {tf,pack,info:info.data};
+      };
+      const loaded=await Promise.all(frames.map(fetchFrame));
+      if(token!==state.token)return;
+      if(loaded.some(x=>!x))throw Error('Request was superseded');
+      for(const {tf,pack} of loaded)state.datasets[tf]=C.freeze(pack);
+      populateSymbols(loaded[0].info);
+      const freshness=Object.fromEntries(frames.map(tf=>
+        [tf,C.freshness(state.datasets[tf],tf,state.datasets[tf].receipt,Date.now())]));
+      const assessment=S.assess({symbol,packs:state.datasets,freshness});
+      view();
+      if(assessment.classification==='WAIT'){
+        status(symbol+': 4H / 1H / 15m loaded; three-frame independent research ready. WAIT means evidence-screening only, not a Coach-qualified signal.');
+      }else{
+        status(symbol+': independent research remains INSUFFICIENT DATA: '+
+          assessment.errors.slice(0,3).join(' · ')+'. No trade signal issued.','error');
+      }
+    }catch(error){
+      controller.abort(); // Stop other parallel timeframe requests on first failure.
+      if(token!==state.token)return;
+      state.datasets={};view();
+      status('Three-timeframe research unavailable: '+
+        (error.name==='AbortError'?'bounded request timeout':error.message)+
+        '. No incomplete research or substitute candles were accepted.','error');
+    }finally{
+      clearTimeout(timer);
+      if(activeRequest===controller)activeRequest=null;
+      if(token===state.token)$('runFullResearch').disabled=false;
+    }
+  }
   function choosePair(value) {
     const next=String(value||'').trim().toUpperCase();
     if(!/^[A-Z0-9]{4,18}$/.test(next)){status('Invalid symbol. Use a Binance-style pair such as BTCUSDT.', 'error');return;}
@@ -348,6 +423,7 @@
     document.querySelectorAll('[data-tf]').forEach(b=>b.addEventListener('click',()=>{cancelPending();state.tf=b.dataset.tf;state.logicalEnd=null;view();if(state.view==='market'&&!state.datasets[state.tf])marketRefresh();}));
     document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.view==='snapshot'&&!snapshots.latest(state.pair)){status('No local saved snapshot. Choose a report JSON file first.');return;}cancelPending();state.view=b.dataset.view;state.logicalEnd=null;view();}));
     $('refresh').addEventListener('click',marketRefresh);
+    $('runFullResearch').addEventListener('click',runFullResearch);
     $('toggleResearch').addEventListener('click',()=>{state.researchEnabled=!state.researchEnabled;view();});
     $('archive').addEventListener('click',archive);
     function navigate(delta) {
