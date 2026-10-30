@@ -438,6 +438,96 @@
       if(token===state.token)$('runFullResearch').disabled=false;
     }
   }
+
+  // XAU-04 owner-click-only local export: no network activity, report data,
+  // account state, local storage, upload or source authentication claim.
+  async function exportXAUReceipts() {
+    const button=$('exportXAUReceipts'),token=state.token,pair=state.pair;
+    button.disabled=true;
+    try {
+      if(pair!=='XAUUSDT' || state.view!=='market')
+        throw Error('Select XAUUSDT Current market before exporting');
+      const frames={},rawPacks={};
+      for(const tf of ['4h','1h','15m']) {
+        if(token!==state.token||state.pair!==pair)throw Error('Pair or data changed');
+        const pack=state.datasets[tf],r=pack?.receipt;
+        if(!pack||!r||!pack.source?.startsWith('Binance USD-M TRADE_PRICE')||
+           r.market!==C.MARKET||r.instrument?.symbol!==pair||
+           r.instrument?.contractType!=='TRADIFI_PERPETUAL'||
+           !C.supported(r.instrument)||!Array.isArray(r.requests)||r.requests.length!==4||
+           typeof r.responseText!=='string'||r.responseText.length>1024*1024||
+           pack.gaps||pack.issues?.length||pack.rows.length<150)
+          throw Error(tf+': valid raw three-frame TradFi market evidence unavailable');
+        const kinds=['exchangeInfo','time_pre','klines','time_post'];
+        const endpoints=['/fapi/v1/exchangeInfo','/fapi/v1/time','/fapi/v1/klines','/fapi/v1/time'];
+        const hashes=[];
+        for(let i=0;i<4;i++){
+          const req=r.requests[i],u=new URL(req.url);
+          if(u.protocol!=='https:'||u.hostname!=='fapi.binance.com'||u.port||u.username||u.password||u.hash||
+             u.pathname!==endpoints[i]||((i!==2)&&u.search)||
+             (i===2&&(u.searchParams.size!==4||
+               u.searchParams.get('symbol')!==pair||
+               u.searchParams.get('interval')!==tf||
+               u.searchParams.get('limit')!=='160'||
+               u.searchParams.get('endTime')!==String(r.endTime)))||
+             !/^[0-9a-f]{64}$/.test(req.sha256)||!Number.isSafeInteger(req.startedMs)||
+             !Number.isSafeInteger(req.finishedMs))
+            throw Error(tf+': unreviewed endpoint or missing request hashes');
+          hashes.push({kind:kinds[i],sha256:req.sha256,url:req.url,
+            started_ms:req.startedMs,finished_ms:req.finishedMs});
+        }
+        const sha=await C.hashBytes(new TextEncoder().encode(r.responseText));
+        if(sha!==hashes[2].sha256)throw Error(tf+': raw provider text hash changed');
+        const raw=JSON.parse(r.responseText),rebuilt=C.normalize(raw,r.cutoffMs,tf,true);
+        if(JSON.stringify(rebuilt.rows.map(row=>row.raw))!==
+           JSON.stringify(pack.rows.map(row=>row.raw))||
+           rebuilt.excluded!==pack.excluded||
+           JSON.stringify(rebuilt.missingIntervals)!==JSON.stringify(pack.missingIntervals)||
+           JSON.stringify(rebuilt.issues)!==JSON.stringify(pack.issues))
+          throw Error(tf+': raw provider response no longer matches displayed candles');
+        if(token!==state.token||state.pair!==pair)throw Error('Pair or data changed');
+        frames[tf]={
+          source_endpoint:hashes[2].url,price_type:'TRADE_PRICE',
+          contract_type:'TRADIFI_PERPETUAL',raw_response_sha256:sha,
+          raw_response_text:r.responseText,raw_rows_in_response:raw.length,
+          completed_rows:pack.rows.length,excluded_unfinished_rows:pack.excluded,
+          missing_intervals:pack.missingIntervals,quarantines:pack.issues,
+          cutoff_ms:r.cutoffMs,last_completed_close_ms:pack.rows.at(-1).closeTime,
+          receipt:{started_ms:r.startedMs,finished_ms:r.finishedMs,
+            client_clock_skew_ms:r.clientClockSkewMs,server_end_ms:r.serverEndMs,
+            duration_ms:r.durationMs,request_hashes:hashes},
+          freshness_at_export:null
+        };
+        rawPacks[tf]=pack;
+      }
+      const exportedAtMs=Date.now();
+      for(const tf of ['4h','1h','15m']){
+        const f=frames[tf],pack=rawPacks[tf];
+        const latest=C.freshness(pack,tf,pack.receipt,exportedAtMs);
+        if(latest.state!=='CURRENT'||latest.recheckDue)
+          throw Error(tf+': stale or recheck-due market data; refresh all frames');
+        f.freshness_at_export={state:latest.state,
+          reasons:latest.reasons||[],recheck_due:false};
+      }
+      if(token!==state.token||state.pair!=='XAUUSDT'||state.view!=='market')
+        throw Error('Market state changed during receipt verification');
+      const result={
+        schema:'fsa.browser-market-receipts.05k2.v2',
+        provenance:'UNVERIFIED_OWNER_BROWSER_SELF_REPORT_NOT_PROVIDER_SIGNED',
+        market:C.MARKET,symbol:'XAUUSDT',exported_client_ms:exportedAtMs,
+        all_three_current_at_export:true,status:'UNVERIFIED_PENDING_OFFLINE_RECONCILIATION',
+        source_authenticated:false,coach_assessment:false,trading_permitted:false,
+        private_report_contents_included:false,frames
+      };
+      const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)+'\n'],{type:'application/json'}));
+      const link=document.createElement('a');link.href=url;
+      link.download='XAUUSDT_unverified_market_receipts.json';
+      link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      status('Downloaded XAUUSDT market-only self-reported receipts for offline review. Not provider-signed or a Coach-qualified signal.');
+    }catch(error){
+      status('Market evidence export refused: '+error.message+'. No evidence file created.','error');
+    }finally{button.disabled=false;}
+  }
   function choosePair(value) {
     const next=String(value||'').trim().toUpperCase();
     if(!/^[A-Z0-9]{4,18}$/.test(next)){status('Invalid symbol. Use a Binance-style pair such as BTCUSDT.', 'error');return;}
@@ -473,6 +563,7 @@
     document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.view==='snapshot'&&!snapshots.latest(state.pair)){status('No local saved snapshot. Choose a report JSON file first.');return;}cancelPending();state.view=b.dataset.view;state.logicalEnd=null;view();}));
     $('refresh').addEventListener('click',marketRefresh);
     $('runFullResearch').addEventListener('click',runFullResearch);
+    $('exportXAUReceipts').addEventListener('click',exportXAUReceipts);
     $('toggleResearch').addEventListener('click',()=>{state.researchEnabled=!state.researchEnabled;view();});
     $('archive').addEventListener('click',archive);
     function navigate(delta) {
